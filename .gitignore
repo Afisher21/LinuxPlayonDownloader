@@ -1,0 +1,6 @@
+# Git ignore file
+
+# Ignore the true ini file, don't need to expose my credentials to everyone
+
+PlayonDownloader.ini
+pat.txt
