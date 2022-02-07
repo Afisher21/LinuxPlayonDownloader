@@ -219,6 +219,9 @@ def DownloadVideos(driver, download_list):
         logging.debug('Active download count: ' + str(len(downloading_list)))
         finished = WaitForDownloads(driver, downloading_list, await_all)
         logging.info('Finished ' + str(len(finished)) + ' downloads')
+        if len(finished) == 0 :
+            logging.critical("WaitForDownloads returned with nothing finished in Download Videos! This should never be the case, so failing to prevent explosion of log")
+            raise "DownloadVideos failed to wait"
         MoveDownloadsToPlayonFolder(finished)
         for item in finished:
             if item in downloading_list:
@@ -263,9 +266,11 @@ def WaitForDownloads(driver, download_list, await_all):
                 logging.info('All Downloads complete!')
                 return finished_downloads
             if not await_all:
+                logging.debug("Returning downloads that finished (since not awaiting all)")
                 return finished_downloads
         if len(inprogress) == 0:
             # No downloads in progress
+            logging.debug("No in progress downloads, returning")
             return []
         time.sleep(30)
 
