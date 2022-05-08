@@ -37,7 +37,11 @@ install_requires = [
 logging.basicConfig(filename=os.path.join(g_paths['mediaroot'], g_settings['logfile']), level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class PlayonVideo:
-    def __init__(self, tr):
+    def __init__(self, tr=None):
+        if tr is None:
+            self.Provider = "Default"
+            return
+        
         self.DownloadButtonId = tr[0].i['id']
          # When downloading, this will happen automatically thanks to chrome. This just lets us find the right file. Further, IMDB doesn't care about ':' vs '_', so just make everything match
         self.CreateRightName(tr[1].text)
@@ -59,6 +63,7 @@ class PlayonVideo:
         episode_parts = re.match(tv_filter, title)
         if episode_parts:
             self.ShowTitle = episode_parts[1].replace(':',' ').replace('_', ' ').strip()
+            self.ShowTitle = self.ShowTitle.rstrip('-').strip() # Remove trailing '-' if present
             self.Season = episode_parts[2][1:]
             self.Episode = episode_parts[3][1:]
             self.EpisodeTitle = episode_parts[4].replace(':',' ').replace('-', ' ').strip()
@@ -67,8 +72,6 @@ class PlayonVideo:
         else:
             self.Title = title.replace(':', '_').replace('/','_')
             self.VideoType = "Movie"
-        
-
 
 def LogInToPlayon(driver):
     import time
@@ -309,7 +312,7 @@ def MoveMoviesToPlayonFolder(download_list):
     for video in download_list:
         src_path = os.path.join(g_paths['playonroot'], video.Provider)
         if not exists(src_path):
-            os.mkdir(src_path)
+            os.makedirs(src_path)
     
     # Iterate through download folder looking for our new videos
     for file in os.listdir(g_paths['downloadfolder']):
@@ -359,8 +362,9 @@ def MoveMoviesToPlayonFolder(download_list):
                         shutil.move(movie_folder, true_location)
                         failed = False
                     except:
-                        attempt_count += 1;
+                        attempt_count += 1
                 logging.info(movie_folder + ' => ' + true_location)
+                break
 
 def MoveTvShowsToPlayonFolder(download_list):
     import os, shutil, re, time
@@ -397,6 +401,21 @@ def MoveTvShowsToPlayonFolder(download_list):
                 
                 logging.info(orig_file_path + ' => ' + final_season_path)
                 shutil.move(orig_file_path, final_season_path)
+                break
+
+def GenerateDownloadList():
+    # We already have downlaoded files, just want to make the list in order to call everything else
+    import os, re
+    dlist = []
+    comp = re.compile("\d*_(.*)\.mp4")
+    for f in os.listdir(g_paths["downloadfolder"]):
+        m = re.match(comp, f)
+        if m:
+            newMatch = PlayonVideo()
+            newMatch.CreateRightName(m[1])
+
+            dlist.append(newMatch)
+    return dlist
 
 def main():
     from selenium import webdriver
@@ -435,4 +454,6 @@ def main():
     
 
 if __name__ == '__main__':
+    #dl = GenerateDownloadList()
+    #MoveDownloadsToPlayonFolder(dl)
     main()
