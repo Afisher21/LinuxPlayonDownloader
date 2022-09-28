@@ -1,3 +1,7 @@
+import logging
+logger = logging.getLogger('__main__')
+from cfg import *
+
 def WaitForDownloads(driver, download_list, await_all):
     # Would be a better method than just raw sleep, but ... too much effort
     # https://newbedev.com/selenium-python-waiting-for-a-download-process-to-complete-using-chrome-web-driver
@@ -6,7 +10,7 @@ def WaitForDownloads(driver, download_list, await_all):
     if len(download_list) == 0:
         return []
     
-    logging.debug('Entering WaitForDownloads, waiting on: ' + str([playon.Title for playon in download_list]))
+    logger.debug('Entering WaitForDownloads, waiting on: ' + str([playon.Title for playon in download_list]))
     infinite_loop = True
     
     while infinite_loop:
@@ -16,15 +20,16 @@ def WaitForDownloads(driver, download_list, await_all):
                 logging.info('All Downloads complete!')
                 return finished_downloads
             if not await_all:
-                logging.debug("Returning downloads that finished (since not awaiting all)")
+                logger.debug("Returning downloads that finished (since not awaiting all)")
                 return finished_downloads
         if len(inprogress) == 0:
             # No downloads in progress
-            logging.debug("No in progress downloads, returning")
+            logger.debug("No in progress downloads, returning")
             return []
         time.sleep(30)
 
 def GetFinishedDownloads(download_list):
+    logger.debug('Entering GetFinishedDownloads')
     finished_downloads = []
     inprogress = []
     video_map = {}
@@ -41,6 +46,7 @@ def GetFinishedDownloads(download_list):
                 finished_downloads.append(video_map[fnameLow])
             else:
                 inprogress.append(video_map[inProgName])
+    logger.debug('Exiting GetFinishedDownloads')
     return finished_downloads, inprogress
 
 def GetMovieData(name):
@@ -51,23 +57,11 @@ def GetMovieData(name):
         if possibility.data['title'].replace(':','_') == name:
             return possibility.data
 
-def MoveDownloadsToPlayonFolder(download_list):
-    movies = []
-    tv_shows = []
-    for video in download_list:
-        if video.VideoType == "TvShow":
-            tv_shows.append(video)
-        elif video.VideoType == "Movie":
-            movies.append(video)
-        else:
-            logging.error("Unknown video type: " + video.VideoType)
-    
-    MoveMoviesToPlayonFolder(movies)
-    MoveTvShowsToPlayonFolder(tv_shows)
-
 def MoveMoviesToPlayonFolder(download_list):
     import os, shutil, re, time
     from datetime import date
+    
+    logger.debug('Entering MoveMoviesToPlayonFolder')
     
     if len(download_list) == 0:
         return
@@ -77,7 +71,7 @@ def MoveMoviesToPlayonFolder(download_list):
     # Make sure a provider ('hbo max', 'disney plus') folder exists for all recorded videos
     for video in download_list:
         src_path = os.path.join(g_paths['playonroot'], video.Provider)
-        if not exists(src_path):
+        if not os.path.exists(src_path):
             os.makedirs(src_path)
     
     # Iterate through download folder looking for our new videos
@@ -131,6 +125,8 @@ def MoveMoviesToPlayonFolder(download_list):
                         attempt_count += 1
                 logging.info(movie_folder + ' => ' + true_location)
                 break
+    logger.debug('Exiting MoveMoviesToPlayonFolder')
+
 
 def MoveTvShowsToPlayonFolder(download_list):
     import os, shutil, re, time
@@ -138,6 +134,8 @@ def MoveTvShowsToPlayonFolder(download_list):
     
     if len(download_list) == 0:
         return
+    logger.debug('Entering MoveTvShowsToPlayonFolder')
+
     # Correct file might look something like #_Title.mp4, but just in case it's only Title.mp4, this will still match
     playonFileRe = re.compile('\d*_?(.*)\.mp4')
     # Components specific to tv episodes:
@@ -162,15 +160,30 @@ def MoveTvShowsToPlayonFolder(download_list):
                 orig_file_path = os.path.join(g_paths['downloadfolder'], file) 
                 
                 if not os.path.exists(final_season_path):
-                    logging.debug('Something missing in path, creating: ' + final_season_path)
+                    logger.debug('Something missing in path, creating: ' + final_season_path)
                     os.makedirs(final_season_path)
                 
                 logging.info(orig_file_path + ' => ' + final_season_path)
                 shutil.move(orig_file_path, final_season_path)
                 break
+    logger.debug('Exiting MoveTvShowsToPlayonFolder')
+
+def MoveDownloadsToPlayonFolder(download_list):
+    movies = []
+    tv_shows = []
+    for video in download_list:
+        if video.VideoType == "TvShow":
+            tv_shows.append(video)
+        elif video.VideoType == "Movie":
+            movies.append(video)
+        else:
+            logging.error("Unknown video type: " + video.VideoType)
+    
+    MoveMoviesToPlayonFolder(movies)
+    MoveTvShowsToPlayonFolder(tv_shows)
 
 def GenerateDownloadList():
-    # We already have downlaoded files, just want to make the list in order to call everything else
+    # We already have downloaded files, just want to make the list in order to call everything else
     import os, re
     dlist = []
     comp = re.compile("\d*_(.*)\.mp4")

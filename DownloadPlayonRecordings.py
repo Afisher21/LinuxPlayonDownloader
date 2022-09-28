@@ -15,30 +15,13 @@
 # For bonus points, setup playon to automatically update:
 #  bash -c "$(wget -qO - https://raw.githubusercontent.com/mrworf/plexupdate/master/extras/installer.sh)"
 
-from genericpath import exists
-import logging, os, configparser
-
-g_iniPath = 'PlayonDownloader.ini'
-
-# ExtendedInterpolation means ini can use ${} instead of %()s, and lets you refer to other sections besides default if needed
-g_config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
-g_config.read(g_iniPath)
-
-g_paths = g_config['Paths']
-g_creds = g_config['Credentials']
-g_settings = g_config['Settings']
-
-install_requires = [
-    'beautifulsoup4',
-    'IMDbPY',
-    'selenium'
-]
+from cfg import *
 
 logging.basicConfig(filename=os.path.join(g_paths['mediaroot'], g_settings['logfile']), level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 from PlayonVideo import PlayonVideo
-from DriverHelpers import *
-from FilesystemHelpers import *
+import DriverHelpers as dh
+import FilesystemHelpers as fsh
 
 def main():
     from selenium import webdriver
@@ -57,13 +40,13 @@ def main():
         driver = webdriver.Chrome(g_paths['chromewebdriver'])
 
     try:
-        LogInToPlayon(driver)
+        dh.LogInToPlayon(driver)
 
-        dl = CheckForNewVideos(driver)
+        dl = dh.CheckForNewVideos(driver)
         if len(dl) > 0:
-            DownloadVideos(driver, dl)
-            WaitForDownloads(driver, dl, True)
-            MoveDownloadsToPlayonFolder(dl)
+            dh.DownloadVideos(driver, dl)
+            fsh.WaitForDownloads(driver, dl, True)
+            fsh.MoveDownloadsToPlayonFolder(dl)
             # Eventually playon will pickup these changes.. but why wait?
             subprocess.run([g_paths['mediascanner'], '--scan'])
             logging.info('Finished sucessfully! Just need to cleanup')

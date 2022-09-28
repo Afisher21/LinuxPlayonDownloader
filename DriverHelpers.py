@@ -1,8 +1,13 @@
+import logging
+logger = logging.getLogger('__main__')
+from cfg import *
+from PlayonVideo import PlayonVideo
+
 def LogInToPlayon(driver):
     import time
     from selenium.webdriver.common.by import By
     
-    logging.debug('Entering LogInToPlayon')
+    logger.debug('Entering LogInToPlayon')
     
     playonUrl = 'https://www.playonrecorder.com/list'
     driver.get(playonUrl)
@@ -23,7 +28,42 @@ def LogInToPlayon(driver):
     login.click()
     time.sleep(10)
     # Long sleep to let 'Your recordings' page load
-    logging.debug('Exiting LogInToPlayon (and presuming success)')
+    logger.debug('Exiting LogInToPlayon (and presuming success)')
+
+def IsVideoDownloaded(row):
+    # Look at each recorded object. Is it already saved? if not, download
+    cols = row.find_all('td')
+    pv = PlayonVideo(cols)
+    
+    # Recursively search for the expected file in previously downloaded & handled
+    if pv.VideoType == "Movie":
+        for root, subFolders, files in os.walk(g_paths['playonroot']):
+            if pv.Provider.lower() in root.lower():
+                for file in files:
+                    if pv.Title.lower() == os.path.splitext(file.lower())[0]:
+                        logger.debug(pv.Title + ' should already be available in plex.')
+                        return None
+    elif pv.VideoType == "TvShow":
+        for root, subFolders, files in os.walk(g_paths['tvroot']):
+            if pv.ShowTitle.lower() in root.lower():
+                for file in files:
+                    if pv.Title.lower() == os.path.splitext(file.lower())[0]:
+                        logger.debug(pv.Title + ' should already be available in plex.')
+                        return None
+    
+    # Recursively search for the expected file in active downloads                    
+    for root, subFolders, files in os.walk(g_paths['downloadfolder']):
+        for file in files:
+            fnameLow = os.path.splitext(file.lower())[0]
+            if pv.Title.lower() == fnameLow:
+                # File is downloaded (or downloading). We will add it to file mgmt list
+                #  incase previous execution crashed, but no need to download a 2nd time
+                logger.debug(pv.Title + ' is already being downloaded.')
+                return pv
+    
+    # We haven't been able to find the video file, therefore return the PV obj so it
+    #  can be added to download_list
+    return pv
 
 def CheckForNewVideos(driver):
     from bs4 import BeautifulSoup
@@ -36,46 +76,12 @@ def CheckForNewVideos(driver):
     
     download_list = []
     for row in tbl:
-        # Look at each recorded object. Is it already saved? if not, download
-        cols = row.find_all('td')
-        pv = PlayonVideo(cols)
-        needToDownload = True
-        
-        # Recursively search for the expected file in previously downloaded & handled
-        if pv.VideoType == "Movie":
-            for root, subFolders, files in os.walk(g_paths['playonroot']):
-                if pv.Provider.lower() in root.lower():
-                    for file in files:
-                        if pv.Title.lower() == os.path.splitext(file.lower())[0]:
-                            logging.debug(pv.Title + ' should already be available in plex.')
-                            needToDownload = False
-                            break
-        elif pv.VideoType == "TvShow":
-            for root, subFolders, files in os.walk(g_paths['tvroot']):
-                if pv.ShowTitle.lower() in root.lower():
-                    for file in files:
-                        if pv.Title.lower() == os.path.splitext(file.lower())[0]:
-                            logging.debug(pv.Title + ' should already be available in plex.')
-                            needToDownload = False
-                            break
-        
-        # Recursively search for the expected file in active downloads                    
-        for root, subFolders, files in os.walk(g_paths['downloadfolder']):
-            for file in files:
-                fnameLow = os.path.splitext(file.lower())[0]
-                if pv.Title.lower() == fnameLow:
-                    # File is downloaded (or downloading). We will add it to file mgmt list
-                    #  incase previous execution crashed, but no need to download a 2nd time
-                    logging.debug(pv.Title + ' is already being downloaded.')
-                    needToDownload = False
-                    download_list.append(pv)
-                    break
-
-        if needToDownload:
+        pv = IsVideoDownloaded(row)
+        if pv:
             logging.info('Want to download: ' + pv.Title)
             download_list.append(pv)
 
-    logging.debug('Required downloads queued')
+    logger.debug('Required downloads queued')
     # What if someone downloads both versions of "Beauty and the beast" at the same time?
     for i in range(len(download_list)):
         duplicate_count = 0
@@ -94,8 +100,9 @@ def DownloadVideos(driver, download_list):
     from selenium.webdriver.common.by import By
     from datetime import datetime
     from datetime import timedelta
+    import FilesystemHelpers as fs 
     import time
-    logging.debug('Entering DownloadVideos')
+    logger.debug('Entering DownloadVideos')
     
     # Sort so earliest expiring video is queued for download
     download_list.sort(key=SortPvByExpiration)
@@ -105,10 +112,10 @@ def DownloadVideos(driver, download_list):
     stop_queue_time = datetime.today() + timedelta(days=1)
     stop_queue_time = stop_queue_time.replace(hour=int(g_settings['morningstoptime']) - 2, minute=0)
             
-    finished, downloading_list = GetFinishedDownloads(download_list)
+    finished, downloading_list = fs.GetFinishedDownloads(download_list)
     if len(finished) > 0:
         logging.info('Count of old downloads to be moved into plex: ' + str(len(finished)))
-        MoveDownloadsToPlayonFolder(finished)
+        fs.MoveDownloadsToPlayonFolder(finished)
         for item in finished:
             if item in download_list:
                 download_list.remove(item)
@@ -136,23 +143,23 @@ def DownloadVideos(driver, download_list):
                 time.sleep(5)
         elif len(downloading_list) > 0:
             # Need to let other downloads finish. However, we have nothing left to download so we should switch to "await all"
-            logging.debug('No downloads left to queue, just need to await remaining')
+            logger.debug('No downloads left to queue, just need to await remaining')
             await_all = True
         else:
             # We have no active downloads, and no required downloads / time left
-            logging.debug('All active downloads finished, and nothing left to queue for download (or out of time)')
+            logger.debug('All active downloads finished, and nothing left to queue for download (or out of time)')
             break
         
         # Wait for a download to finish, then move into appropriate folder structure
-        logging.debug('Active download count: ' + str(len(downloading_list)))
-        finished = WaitForDownloads(driver, downloading_list, await_all)
+        logger.debug('Active download count: ' + str(len(downloading_list)))
+        finished = fs.WaitForDownloads(driver, downloading_list, await_all)
         logging.info('Finished ' + str(len(finished)) + ' downloads')
         if len(finished) == 0 :
             logging.critical("WaitForDownloads returned with nothing finished in Download Videos! This should never be the case, so failing to prevent explosion of log")
             raise "DownloadVideos failed to wait"
-        MoveDownloadsToPlayonFolder(finished)
+        fs.MoveDownloadsToPlayonFolder(finished)
         for item in finished:
             if item in downloading_list:
                 downloading_list.remove(item)
         
-    logging.debug('Exiting DownloadVideos')
+    logger.debug('Exiting DownloadVideos')
