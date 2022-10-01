@@ -30,7 +30,7 @@ class PlayonVideo:
             if self.ShowTitle.endswith(':') or self.ShowTitle.endswith('-'):
                 # The colon/hyphen after show title should be ignored
                 self.ShowTitle = self.ShowTitle[:-1].strip()
-            self.ShowTitle.replace(':','_') # Chromium/playon doesn't like colons, and replaces with underscore
+            self.ShowTitle = self.ShowTitle.replace(':','_') # Chromium/playon doesn't like colons, and replaces with underscore
             self.Season = episode_parts[2][1:]
             self.Episode = episode_parts[3][1:]
             self.EpisodeTitle = episode_parts[4].replace(':',' ').replace('-', ' ').strip()
