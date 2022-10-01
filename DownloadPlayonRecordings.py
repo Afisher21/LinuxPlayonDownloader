@@ -19,7 +19,7 @@ from cfg import *
 
 logging.basicConfig(filename=os.path.join(g_paths['mediaroot'], g_settings['logfile']), level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-from PlayonVideo import PlayonVideo
+from PlayonVideo import *
 import DriverHelpers as dh
 import FilesystemHelpers as fsh
 

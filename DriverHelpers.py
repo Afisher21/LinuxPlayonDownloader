@@ -1,7 +1,7 @@
 import logging
 logger = logging.getLogger('__main__')
 from cfg import *
-from PlayonVideo import PlayonVideo
+from PlayonVideo import *
 
 def LogInToPlayon(driver):
     import time
@@ -30,44 +30,10 @@ def LogInToPlayon(driver):
     # Long sleep to let 'Your recordings' page load
     logger.debug('Exiting LogInToPlayon (and presuming success)')
 
-def IsVideoDownloaded(row):
-    # Look at each recorded object. Is it already saved? if not, download
-    cols = row.find_all('td')
-    pv = PlayonVideo(cols)
-    
-    # Recursively search for the expected file in previously downloaded & handled
-    if pv.VideoType == "Movie":
-        for root, subFolders, files in os.walk(g_paths['playonroot']):
-            if pv.Provider.lower() in root.lower():
-                for file in files:
-                    if pv.Title.lower() == os.path.splitext(file.lower())[0]:
-                        logger.debug(pv.Title + ' should already be available in plex.')
-                        return None
-    elif pv.VideoType == "TvShow":
-        for root, subFolders, files in os.walk(g_paths['tvroot']):
-            if pv.ShowTitle.lower() in root.lower():
-                for file in files:
-                    if pv.Title.lower() == os.path.splitext(file.lower())[0]:
-                        logger.debug(pv.Title + ' should already be available in plex.')
-                        return None
-    
-    # Recursively search for the expected file in active downloads                    
-    for root, subFolders, files in os.walk(g_paths['downloadfolder']):
-        for file in files:
-            fnameLow = os.path.splitext(file.lower())[0]
-            if pv.Title.lower() == fnameLow:
-                # File is downloaded (or downloading). We will add it to file mgmt list
-                #  incase previous execution crashed, but no need to download a 2nd time
-                logger.debug(pv.Title + ' is already being downloaded.')
-                return pv
-    
-    # We haven't been able to find the video file, therefore return the PV obj so it
-    #  can be added to download_list
-    return pv
-
 def CheckForNewVideos(driver):
     from bs4 import BeautifulSoup
     import os
+    import FilesystemHelpers as fsh
     bs = BeautifulSoup(driver.page_source, features='html.parser')
     tbl = bs.find(id='recording-list')
     
@@ -76,9 +42,11 @@ def CheckForNewVideos(driver):
     
     download_list = []
     for row in tbl:
-        pv = IsVideoDownloaded(row)
-        if pv:
-            logging.info('Want to download: ' + pv.Title)
+        # Look at each recorded object. Is it already saved? if not, download
+        cols = row.find_all('td')
+        pv = PlayonVideo(cols)
+        if not fsh.VideoIsDownloaded(pv):
+            logger.info('Want to download: ' + pv.Title)
             download_list.append(pv)
 
     logger.debug('Required downloads queued')
@@ -90,7 +58,7 @@ def CheckForNewVideos(driver):
                 duplicate_count += 1
                 download_list[j].Title += " (" + str(duplicate_count) + ")"
                 
-    
+    logger.info('download_list: ' + PlayonArrayToStr(download_list))
     return download_list
 
 def SortPvByExpiration(e):
@@ -114,7 +82,7 @@ def DownloadVideos(driver, download_list):
             
     finished, downloading_list = fs.GetFinishedDownloads(download_list)
     if len(finished) > 0:
-        logging.info('Count of old downloads to be moved into plex: ' + str(len(finished)))
+        logger.info('Count of old downloads to be moved into plex: ' + str(len(finished)))
         fs.MoveDownloadsToPlayonFolder(finished)
         for item in finished:
             if item in download_list:
@@ -153,9 +121,9 @@ def DownloadVideos(driver, download_list):
         # Wait for a download to finish, then move into appropriate folder structure
         logger.debug('Active download count: ' + str(len(downloading_list)))
         finished = fs.WaitForDownloads(driver, downloading_list, await_all)
-        logging.info('Finished ' + str(len(finished)) + ' downloads')
+        logger.info('Finished downloads: ' + PlayonArrayToStr(finished))
         if len(finished) == 0 :
-            logging.critical("WaitForDownloads returned with nothing finished in Download Videos! This should never be the case, so failing to prevent explosion of log")
+            logger.critical("WaitForDownloads returned with nothing finished in Download Videos! This should never be the case, so failing to prevent explosion of log")
             raise "DownloadVideos failed to wait"
         fs.MoveDownloadsToPlayonFolder(finished)
         for item in finished:

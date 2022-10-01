@@ -5,7 +5,7 @@ class PlayonVideo:
             return
         
         self.DownloadButtonId = tr[0].i['id']
-         # When downloading, this will happen automatically thanks to chrome. This just lets us find the right file. Further, IMDB doesn't care about ':' vs '_', so just make everything match
+        # When downloading, this will happen automatically thanks to chrome. This just lets us find the right file. Further, IMDB doesn't care about ':' vs '_', so just make everything match
         self.CreateRightName(tr[1].text)
         self.Provider = tr[2].text
         self.Size = tr[3].text
@@ -24,8 +24,13 @@ class PlayonVideo:
         tv_filter = re.compile(r"(.*)([Ss]\d{2})([Ee]\d{2})(.*)")
         episode_parts = re.match(tv_filter, title)
         if episode_parts:
-            self.ShowTitle = episode_parts[1].replace(':',' ').replace('_', ' ').strip()
-            self.ShowTitle = self.ShowTitle.rstrip('-').strip() # Remove trailing '-' if present
+            # She-Hulk: Attorney at Law: s01e04 - Is this not real magic? ==>
+            # She-Hulk_ Attorney at Law - s01e04 - Is this not real magic?
+            self.ShowTitle = episode_parts[1].strip()
+            if self.ShowTitle.endswith(':') or self.ShowTitle.endswith('-'):
+                # The colon/hyphen after show title should be ignored
+                self.ShowTitle = self.ShowTitle[:-1].strip()
+            self.ShowTitle.replace(':','_') # Chromium/playon doesn't like colons, and replaces with underscore
             self.Season = episode_parts[2][1:]
             self.Episode = episode_parts[3][1:]
             self.EpisodeTitle = episode_parts[4].replace(':',' ').replace('-', ' ').strip()
@@ -34,3 +39,12 @@ class PlayonVideo:
         else:
             self.Title = title.replace(':', '_').replace('/','_')
             self.VideoType = "Movie"
+
+def PlayonArrayToStr(pv_arr):
+    if len(pv_arr) == 0:
+        return '[]'
+    out_str = '['
+    for pv in pv_arr:
+        out_str += pv.Title + ','
+    out_str = out_str[:-1] + ']'
+    return out_str

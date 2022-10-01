@@ -1,6 +1,37 @@
 import logging
 logger = logging.getLogger('__main__')
 from cfg import *
+from PlayonVideo import *
+
+def VideoIsDownloaded(pv):   
+    # Recursively search for the expected file in previously downloaded & handled
+    if pv.VideoType == "Movie":
+        for root, subFolders, files in os.walk(g_paths['playonroot']):
+            if pv.Provider.lower() in root.lower():
+                for file in files:
+                    if pv.Title.lower() == os.path.splitext(file.lower())[0]:
+                        logger.debug(pv.Title + ' found at ' + root)
+                        return True
+    elif pv.VideoType == "TvShow":
+        for root, subFolders, files in os.walk(g_paths['tvroot']):
+            if pv.ShowTitle.lower() in root.lower():
+                for file in files:
+                    if pv.Title.lower() == os.path.splitext(file.lower())[0]:
+                        logger.debug(pv.Title + ' found at ' + root)
+                        return True
+    
+    # Recursively search for the expected file in active downloads                    
+    for root, subFolders, files in os.walk(g_paths['downloadfolder']):
+        for file in files:
+            fnameLow = os.path.splitext(file.lower())[0]
+            if pv.Title.lower() == fnameLow:
+                # File is downloaded (or downloading). We will add it to file mgmt list
+                #  incase previous execution crashed, but no need to download a 2nd time
+                logger.debug(pv.Title + ' is already being downloaded.')
+                return False
+    
+    # We haven't been able to find the video file, therefore return false
+    return False
 
 def WaitForDownloads(driver, download_list, await_all):
     # Would be a better method than just raw sleep, but ... too much effort
@@ -17,7 +48,7 @@ def WaitForDownloads(driver, download_list, await_all):
         finished_downloads, inprogress = GetFinishedDownloads(download_list)
         if len(finished_downloads) > 0:
             if len(finished_downloads) == len(download_list):
-                logging.info('All Downloads complete!')
+                logger.info('All Downloads complete!')
                 return finished_downloads
             if not await_all:
                 logger.debug("Returning downloads that finished (since not awaiting all)")
@@ -29,7 +60,7 @@ def WaitForDownloads(driver, download_list, await_all):
         time.sleep(30)
 
 def GetFinishedDownloads(download_list):
-    logger.debug('Entering GetFinishedDownloads')
+    #logger.debug('Entering GetFinishedDownloads')
     finished_downloads = []
     inprogress = []
     video_map = {}
@@ -46,7 +77,7 @@ def GetFinishedDownloads(download_list):
                 finished_downloads.append(video_map[fnameLow])
             else:
                 inprogress.append(video_map[inProgName])
-    logger.debug('Exiting GetFinishedDownloads')
+    #logger.debug('Exiting GetFinishedDownloads')
     return finished_downloads, inprogress
 
 def GetMovieData(name):
@@ -83,7 +114,7 @@ def MoveMoviesToPlayonFolder(download_list):
         for video in download_list:
             if title == video.Title:
                 # Create proper folder with name + year (if movie)
-                logging.info('Attempting to move download (' + title + ') to appropriate folder')
+                logger.info('Attempting to move download (' + title + ') to appropriate folder')
                 year = ''
                 movie_date = []
                 try:
@@ -95,14 +126,14 @@ def MoveMoviesToPlayonFolder(download_list):
                         #  current year, but can always come back later and fix if it isn't appearing correctly
                         year = str(date.today().year)
                 except:
-                    logging.error('Exception generated from imdb! Defaulting to current year I guess')
+                    logger.error('Exception generated from imdb! Defaulting to current year I guess')
                     year = str(date.today().year)
             
                 folder_title = title + ' (' + year + ')'
                 movie_folder = os.path.join(g_paths['downloadfolder'], folder_title)
                 os.mkdir(movie_folder)
                 if not movie_data:
-                     logging.warning('Unable to find ' + title + ' on IMDB :( ')
+                     logger.warning('Unable to find ' + title + ' on IMDB :( ')
                      f = open(os.path.join(movie_folder, 'Guesswork.txt'), mode='x')
                      f.write("Couldn't find the file in IMDB. Chose to assume it is " + year + ", but if not the case, please correct!")
                      f.close()
@@ -123,7 +154,7 @@ def MoveMoviesToPlayonFolder(download_list):
                         failed = False
                     except:
                         attempt_count += 1
-                logging.info(movie_folder + ' => ' + true_location)
+                logger.info(movie_folder + ' => ' + true_location)
                 break
     logger.debug('Exiting MoveMoviesToPlayonFolder')
 
@@ -153,7 +184,7 @@ def MoveTvShowsToPlayonFolder(download_list):
         for video in download_list:
             if title == video.Title:
                 # Create proper folder 
-                logging.info('Attempting to move download (' + title + ') to appropriate folder')
+                logger.info('Attempting to move download (' + title + ') to appropriate folder')
                 final_show_path = os.path.join(g_paths['tvroot'], video.Provider, video.ShowTitle)
                 final_season_path = os.path.join(final_show_path, 'Season ' + video.Season)
                 
@@ -163,7 +194,7 @@ def MoveTvShowsToPlayonFolder(download_list):
                     logger.debug('Something missing in path, creating: ' + final_season_path)
                     os.makedirs(final_season_path)
                 
-                logging.info(orig_file_path + ' => ' + final_season_path)
+                logger.info(orig_file_path + ' => ' + final_season_path)
                 shutil.move(orig_file_path, final_season_path)
                 break
     logger.debug('Exiting MoveTvShowsToPlayonFolder')
@@ -177,7 +208,7 @@ def MoveDownloadsToPlayonFolder(download_list):
         elif video.VideoType == "Movie":
             movies.append(video)
         else:
-            logging.error("Unknown video type: " + video.VideoType)
+            logger.error("Unknown video type: " + video.VideoType)
     
     MoveMoviesToPlayonFolder(movies)
     MoveTvShowsToPlayonFolder(tv_shows)
