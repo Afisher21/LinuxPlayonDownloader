@@ -77,6 +77,8 @@ def GetFinishedDownloads(download_list):
                 finished_downloads.append(video_map[fnameLow])
             else:
                 inprogress.append(video_map[inProgName])
+        else:
+            logger.debug('Unregistered file found by GetFinishedDownloads: ' + fnameLow)
     #logger.debug('Exiting GetFinishedDownloads')
     return finished_downloads, inprogress
 

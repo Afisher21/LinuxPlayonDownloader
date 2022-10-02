@@ -33,7 +33,7 @@ class PlayonVideo:
             self.ShowTitle = self.ShowTitle.replace(':','_') # Chromium/playon doesn't like colons, and replaces with underscore
             self.Season = episode_parts[2][1:]
             self.Episode = episode_parts[3][1:]
-            self.EpisodeTitle = episode_parts[4].replace(':',' ').replace('-', ' ').strip()
+            self.EpisodeTitle = episode_parts[4].replace(':',' ').replace('-', ' ').replace('?','_').strip()
             self.VideoType = "TvShow"
             self.Title = self.ShowTitle + ' - ' + episode_parts[2] + episode_parts[3] + ' - ' +  self.EpisodeTitle
         else:
