@@ -6,6 +6,7 @@ from PlayonVideo import *
 def LogInToPlayon(driver):
     import time
     from selenium.webdriver.common.by import By
+    from selenium.common.exceptions import NoSuchElementException
     
     logger.debug('Entering LogInToPlayon')
     
@@ -24,11 +25,20 @@ def LogInToPlayon(driver):
     password_in.send_keys(g_creds['playonpassword'])
 
     time.sleep(1)
-    login = driver.find_element(By.ID, 'login-button')
-    login.click()
-    time.sleep(10)
-    # Long sleep to let 'Your recordings' page load
-    logger.debug('Exiting LogInToPlayon (and presuming success)')
+    
+    # Max 3 attempts since Playon can be stupid and reject the login attempt, but work on retry
+    attempt_count = 0
+    while attempt_count < 3:
+        try:
+            login = driver.find_element(By.ID, 'login-button')
+            login.click()
+            # This longer sleep is to allow the auth to validate and load the table of hte downloads
+            time.sleep(10)
+        except NoSuchElementException:
+            logger.debug('Exiting LogInToPlayon (Login button no longer available!)')
+            return
+
+    logger.debug('Exiting LogInToPlayon (attempt_count_timeout)')
 
 def CheckForNewVideos(driver):
     from bs4 import BeautifulSoup
