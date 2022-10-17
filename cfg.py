@@ -1,6 +1,6 @@
 import logging, os, configparser
 
-g_iniPath = 'PlayonDownloader.ini'
+g_iniPath = os.path.join(os.path.realpath(os.path.dirname(__file__)), 'PlayonDownloader.ini')
 
 # ExtendedInterpolation means ini can use ${} instead of %()s, and lets you refer to other sections besides default if needed
 g_config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
