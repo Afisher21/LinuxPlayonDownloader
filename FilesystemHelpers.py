@@ -85,7 +85,15 @@ def GetFinishedDownloads(download_list):
 def GetMovieData(name):
     import imdb
     ia = imdb.IMDb()
-    possibles = ia.search_movie(name)
+    # IMDb has a tendency to return an empty array whenever it has an issue with web stuff rather than throwing an error... for some reason.
+    max_attempts = 10
+    curr_attempt = 0
+    while curr_attempt < max_attempts:
+        curr_attempt += 1
+        possibles = ia.search_movie(name)
+        if len(possibles) > 0:
+            break
+    logger.debug("IMDb # of results:" + str(len(possibles)) + ", attempts: " + str(curr_attempt))
     for possibility in possibles:
         if possibility.data['title'].replace(':','_') == name:
             return possibility.data
@@ -118,7 +126,6 @@ def MoveMoviesToPlayonFolder(download_list):
                 # Create proper folder with name + year (if movie)
                 logger.info('Attempting to move download (' + title + ') to appropriate folder')
                 year = ''
-                movie_date = []
                 try:
                     movie_data = GetMovieData(title)
                     if movie_data:

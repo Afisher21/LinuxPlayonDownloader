@@ -9,7 +9,7 @@
 # sudo apt-get install libxml2-dev libxslt-dev python-dev
 # which python3 (make sure that path is /usr/bin/python3)
 #
-# Finally: crontab -e => 0 23 * * * /usr/bin/python3 /plex/media/Media/DownloadPlayonRecordings.py
+# Finally: crontab -e => 0 23 * * * /usr/bin/python3 <repo path>/DownloadPlayonRecordings.py
 #   a.k.a. automatically run every day at 11:00 p.m.
 #
 # For bonus points, setup playon to automatically update:
