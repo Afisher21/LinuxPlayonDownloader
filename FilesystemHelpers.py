@@ -33,7 +33,7 @@ def VideoIsDownloaded(pv):
     # We haven't been able to find the video file, therefore return false
     return False
 
-def WaitForDownloads(driver, download_list, await_all):
+def WaitForDownloads(download_list, await_all):
     # Would be a better method than just raw sleep, but ... too much effort
     # https://newbedev.com/selenium-python-waiting-for-a-download-process-to-complete-using-chrome-web-driver
     import os, time

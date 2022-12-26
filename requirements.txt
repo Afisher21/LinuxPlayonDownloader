@@ -1,0 +1,3 @@
+#### python requirements for DownloadPlayonRecordings ####
+selenium
+beautifulsoup4
