@@ -1,3 +1,4 @@
 #### python requirements for DownloadPlayonRecordings ####
 selenium
 beautifulsoup4
+chromedriver-py

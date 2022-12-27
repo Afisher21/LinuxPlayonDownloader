@@ -6,6 +6,7 @@ class PlayonWebdriver():
         # Set up the driver so that commands can be invoked
         from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
+        from chromedriver_py import binary_path as driver_path
 
         import logging
         self.logger = logging.getLogger('__main__')
@@ -23,6 +24,8 @@ class PlayonWebdriver():
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.experimental_options['prefs'] = {'download.default_directory': g_paths['downloadfolder']}
+
+        change_driver(driver_path)
         
         try:
             self.driver = webdriver.Chrome(options = options)
@@ -34,6 +37,31 @@ class PlayonWebdriver():
         # Explicitly close the driver, don't want a dangling head left around
         if self.driver is not None:
             self.driver.close()   
+
+    def change_driver(self, loc):
+        # https://github.com/Strip3s/PhoenixBot/blob/554441b3b6888a9be46b8aed6d364dc33da92e87/utils/selenium_utils.py#L150-L173
+        import re
+
+        fin = open(loc, 'rb')
+        data = fin.read()
+        val = "$" + "".join(random.choices(string.ascii_lowercase, k=3)) + "_" + \
+            "".join(random.choices(string.ascii_letters + string.digits, k=22)) + "_"
+
+        result = re.search(b"[$][a-z]{3}_[a-zA-Z0-9]{22}_", data)
+
+        if result is not None:
+            try:
+                logger.debug("Changing value in Chromedriver")
+                data = data.replace(result.group(0), val.encode())
+                fin.close()
+                fin = open(loc, 'wb')
+                fin.truncate()
+                fin.write(data)
+                fin.close()
+            except:
+                logger.error("Error modifying chromedriver")
+        else:
+            fin.close()
 
     def LogInToPlayon(self):
         import time
@@ -70,7 +98,8 @@ class PlayonWebdriver():
             except NoSuchElementException:
                 logger.debug('Exiting LogInToPlayon (Login button no longer available!)')
                 return
-
+        # There has been an issue and we were unable to actually perform the login. Maybe try to get a picture? 
+        driver.save_full_page_screenshot('/Screenshots/FailedLogin.png')
         self.logger.debug('Exiting LogInToPlayon (attempt_count_timeout)')
 
     def CheckForNewVideos(self):
